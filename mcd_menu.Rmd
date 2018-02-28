@@ -1,0 +1,125 @@
+---
+title: "McD_Nutrient_Menu - Linear Regression Model"
+author: "Aravind"
+date: "January 11, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+McDonalds nutrient menu is an interesting dataset that contain values of calories, fat,  cholesterol, carbohydrates, sodium content, protein, fiber and vitamins of different type of food served at McDonalds.
+	 Dependent Variable(Target) = Calories
+	 
+Data Set Link : https://www.kaggle.com/mcdonalds/nutrition-facts/data
+Rmd Code : http://www.instituteofanalytics.com/forum/discussion/18/an-example-of-multiple-regression-model#latest
+	 
+```{r}
+data <- read.csv("menu.csv")
+str(data)
+```
+
+
+we can do scatter plots and corrplots to check relation among variables
+```{r}
+require(lattice)
+splom(~data[c(4,6,11,13,15,17,19,20)],groups = NULL, data = data, axis.line.tck = 0, axis.text.alpha = 0)
+require(corrplot)
+cr <- cor(data[c(4,6,11,13,15,17,19,20)])
+corrplot(cr,method = "number")
+```
+
+Total fat has a high corelation = 0.9, followed by protein = 0.79 and carbohydrates = 0.78
+
+Split the dataset into train and test
+```{r}
+library(caTools)
+set.seed(2) #to get the same split everytime
+split <- sample.split(data$Calories,SplitRatio = 0.70)
+train <- subset(data,split == "TRUE")
+test <- subset(data, split == "FALSE")
+```
+
+Let's first build a Linear regression model between calories and total fat.
+Independent Variable - Total.Fat
+
+Scatter plot and Conditional expectation(mean) plot
+```{r}
+require(dplyr)
+#Scatter PLot
+plot(train$Total.Fat,train$Calories,main = "Scatter Plot",xlab = "Total Fat", ylab = "Calories")
+abline(lm(train$Calories~train$Total.Fat))
+#Conditional Expectation Plot
+dataexp <- summarise(group_by(train,Total.Fat),calmean = mean(Calories))
+plot(dataexp$Total.Fat,dataexp$calmean,xlab = "Total Fat",ylab = "mean - calories",main = "Conditional 
+     Expectation(mean) Plot")
+```
+
+Linear Regression Model
+```{r}
+model1 <- lm(Calories~Total.Fat,data = train)
+summary(model1)
+```
+
+
+value of intercept = 151.838
+value of slope = 15.180
+
+Both the values are significant(*** refers to high signficance)
+R-squared = 85% (This means 82% of variance in calories is explained by total fat)
+The overall p-value is also significant
+
+The linear equation to predict calories : Calories = 151.5882 + 15.2965*total fat
+
+
+
+# Lets Build a multiple regression model.
+
+From corplots we found out that total fat, protein and carbohydrates are highly corelated.
+
+```{r}
+model <- lm(Calories~ Total.Fat + Protein + Carbohydrates, data = train)
+summary(model)
+```
+
+R - sq value of 1. These three variables almost explains 100% of variance in calories
+
+#Regression Diagnostics
+```{r}
+plot(model, which = 1:4)
+```
+
+CD > = k/n (k is # of predictors, n is sample size)
+CD > = 3/189 = 0.016
+Rough cut off - 4/n = 4/189 = 0.02.
+Observations 120,121,259 can be removed and model can be rebuilt.
+
+```{r}
+train <- train[-c(120,121,259),]
+model <- lm(Calories~ Total.Fat + Protein + Carbohydrates, data = train)
+summary(model)
+```
+
+# Predict
+```{r}
+predictions <- predict(model,test)
+predictions
+```
+#Now, lets compare actual values and predicted values
+```{r}
+plot(test$Calories,type = "l",lty = 1.8, col="green")
+lines(predictions,type = "l", col = "blue")
+```
+
+almost 100% accurate.(Lines overlap)
+
+# Future Predictions
+Say, for values of Total fat = 20, Protein = 18 & Carbohydatres = 33
+```{r}
+predict(model,data.frame(Total.Fat = 20,Protein = 18,Carbohydrates = 33))
+```
+We get, calories = 382.5207
+
+
+
